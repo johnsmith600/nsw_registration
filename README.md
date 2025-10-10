@@ -38,7 +38,7 @@ Advanced New South Wales style vehicle registration for FiveM with ESX and QBCor
 - Grace period and late penalties
 - Job-based permissions for police checks
 - Business discounts (e.g. mechanics)
-- ox_lib UI with notify; command fallbacks
+- ox_lib notify; command fallbacks
 
 ## Notes
 - Money is charged from bank by default.
