@@ -1,13 +1,13 @@
--- Copyright (c) 2025 johnsmith600
--- Licensed: Free to use AS-IS (no modification, no redistribution, no resale).
--- See LICENSE file for full terms: https://github.com/johnsmith600/nsw_registration/blob/main/LICENSE
+## Copyright (c) 2025 johnsmith600
+## Licensed: Free to use AS-IS (no modification, no redistribution, no resale).
+## See LICENSE file for full terms: https://github.com/johnsmith600/nsw_registration/blob/main/LICENSE
 
 # NSW Registration (ESX/QBCore)
 
 Advanced New South Wales style vehicle registration for FiveM with ESX and QBCore support.
 
 ## Requirements
-- ox_lib (context/menu + notify)
+- ox_lib (notify)
 - oxmysql
 - One of: es_extended (v1.10+) or qb-core (latest)
 
@@ -45,6 +45,5 @@ Advanced New South Wales style vehicle registration for FiveM with ESX and QBCor
 - Identifiers: uses license/citizenid on QBCore, identifier on ESX.
 - Webhook logging is stubbed; add your URL in `Config.Logging.webhook`.
 
-## Support
-This resource was generated as a starting point. Adjust UI/validation and integrate with your plate generation as needed.
+
 
