@@ -48,7 +48,7 @@ Advanced New South Wales style vehicle registration for FiveM with ESX and QBCor
 ## screenshots
 ## Vanity
 <img width="1009" height="736" alt="ui1" src="https://github.com/user-attachments/assets/fc4ca7b5-739e-4d6b-b98f-b3bbac1b1d7e" />
-## Register
+## Register ##
 <img width="997" height="727" alt="ui2" src="https://github.com/user-attachments/assets/6e3669d5-41cf-4dce-b27f-f8cc905b7826" />
 ## Renew
 <img width="1014" height="778" alt="ui3" src="https://github.com/user-attachments/assets/6b5d1dcb-31ed-4754-9837-784129729bdd" />
@@ -62,6 +62,7 @@ Advanced New South Wales style vehicle registration for FiveM with ESX and QBCor
 <img width="1049" height="709" alt="ui7" src="https://github.com/user-attachments/assets/f059335f-a2b4-425d-9ae8-973889855761" />
 ## Location
 <img width="544" height="596" alt="loacation" src="https://github.com/user-attachments/assets/976ded83-d576-4942-b1f1-5db2b6da7f94" />
+
 
 
 
