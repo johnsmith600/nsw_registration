@@ -99,6 +99,14 @@ end
 function Bridge.addMoney(player, account, amount)
 	if not player or not amount or amount <= 0 then return false end
 	account = account or 'bank'
+
+	if Config.UseDHSBanking and GetResourceState('DHS-BankingSim') == 'started' then
+		local src = (Bridge.name == 'esx') and player.source or player.PlayerData.source
+		local dhsAcc = (account == 'bank') and 'checking' or account
+		local result = exports['DHS-BankingSim']:AddMoney(src, dhsAcc, amount, 'NSW Registration', true)
+		if result and result.success then return true end
+	end
+
 	if Bridge.name == 'qbox' then
 		return exports.qbx_core:AddMoney(player.PlayerData.source, account, amount)
 	elseif Bridge.name == 'qb' then
@@ -117,6 +125,14 @@ end
 function Bridge.removeMoney(player, account, amount)
 	if not player or not amount or amount <= 0 then return false end
 	account = account or 'bank'
+
+	if Config.UseDHSBanking and GetResourceState('DHS-BankingSim') == 'started' then
+		local src = (Bridge.name == 'esx') and player.source or player.PlayerData.source
+		local dhsAcc = (account == 'bank') and 'checking' or account
+		local result = exports['DHS-BankingSim']:RemoveMoney(src, dhsAcc, amount, 'NSW Registration', true)
+		if result and result.success then return true end
+	end
+
 	if Bridge.name == 'qbox' then
 		return exports.qbx_core:RemoveMoney(player.PlayerData.source, account, amount)
 	elseif Bridge.name == 'qb' then
@@ -135,6 +151,14 @@ end
 function Bridge.getMoney(player, account)
 	if not player then return 0 end
 	account = account or 'bank'
+
+	if Config.UseDHSBanking and GetResourceState('DHS-BankingSim') == 'started' then
+		local src = (Bridge.name == 'esx') and player.source or player.PlayerData.source
+		local dhsAcc = (account == 'bank') and 'checking' or account
+		local balance = exports['DHS-BankingSim']:GetPlayerBalance(src, dhsAcc)
+		return tonumber(balance) or 0
+	end
+
 	if Bridge.name == 'qbox' or Bridge.name == 'qb' then
 		local bal = player.Functions.GetMoney(account)
 		return tonumber(bal) or 0
