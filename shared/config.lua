@@ -4,7 +4,7 @@
 
 Config = {}
 
--- auto | esx | qb
+-- auto | esx | qb | qbox
 Config.Framework = 'auto'
 
 -- Debugging
@@ -24,6 +24,8 @@ Config.Registration = {
 	renewalFee = 350.0,
 	transferFee = 220.0,
 	vanityPlateFee = 800.0,
+	printPlateFee = 50.0, -- fee to print physical plates
+	replacementPlateFee = 100.0, -- fee for lost plates
 	durationDays = 90,
 	graceDays = 7, -- days after expiry where fines escalate
 	latePenaltyPercentPerDay = 5.0, -- percentage on renewal per late day (capped below)
@@ -31,11 +33,30 @@ Config.Registration = {
 	impoundOnExpired = false -- if true, vehicles may be impounded on police check
 }
 
+-- Pink Slip settings
+Config.PinkSlip = {
+	enabled = true,
+	fee = 50.0, -- Fee charged by mechanics
+	durationDays = 180, -- 6 months
+	requiredForRegistration = true,
+	requiredForRenewal = true,
+	authorizedJobs = { 'mechanic', 'bennys' }
+}
+
 -- Available registration durations and fee multipliers (e.g., discounts for longer terms)
 Config.RegistrationDurations = {
 	[3] = { months = 3, days = 90, feeMultiplier = 1.0 },
 	[6] = { months = 6, days = 180, feeMultiplier = 1.90 },
 	[12] = { months = 12, days = 365, feeMultiplier = 3.60 }
+}
+
+-- NSW Plate Styles
+Config.PlateStyles = {
+	{ id = 'standard', label = 'Standard (Yellow/Black)', fee = 0 },
+	{ id = 'white', label = 'White (White/Black)', fee = 50 },
+	{ id = 'black', label = 'Black (Black/White)', fee = 50 },
+	{ id = 'euro', label = 'Euro style', fee = 150 },
+	{ id = 'jdm', label = 'JDM style', fee = 100 }
 }
 
 -- Plate blacklist patterns (Lua patterns), e.g. forbidden words or formats
@@ -105,4 +126,3 @@ Config.VanityCooldownMinutes = 10
 Config.StaffFree = true
 
 return Config
-

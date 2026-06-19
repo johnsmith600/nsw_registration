@@ -47,10 +47,11 @@ end
 
 local function isWithinGrace(expiry)
 	local grace = (Config.Registration.graceDays or 0) * 86400
-	return now() > expiry and now() <= (expiry + grace)
+	return now() > expiry and now() <= (expiry + (grace or 0))
 end
 
 local function ensureTable()
+	-- Main registrations table
 	MySQL.query([[CREATE TABLE IF NOT EXISTS nsw_registrations (
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		plate VARCHAR(16) NOT NULL UNIQUE,
@@ -58,10 +59,69 @@ local function ensureTable()
 		vehicle_hash VARCHAR(64) DEFAULT NULL,
 		registered_at INT NOT NULL,
 		expires_at INT NOT NULL,
+		pink_slip_expires_at INT DEFAULT 0,
+		is_printed TINYINT NOT NULL DEFAULT 0,
+		plate_style VARCHAR(32) DEFAULT 'standard',
 		status TINYINT NOT NULL DEFAULT 1,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]])
+
+	-- Logs table
+	MySQL.query([[CREATE TABLE IF NOT EXISTS nsw_reg_logs (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		plate VARCHAR(16) NOT NULL,
+		actor_identifier VARCHAR(64) NOT NULL,
+		action ENUM('register','renew','transfer','pinkslip','print') NOT NULL,
+		fee INT NOT NULL DEFAULT 0,
+		meta JSON NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		INDEX (plate)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]])
+
+	-- Reservations table
+	MySQL.query([[CREATE TABLE IF NOT EXISTS nsw_plate_reservations (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		plate VARCHAR(16) NOT NULL UNIQUE,
+		reserved_by VARCHAR(64) NOT NULL,
+		reserved_at INT NOT NULL,
+		expires_at INT NOT NULL
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]])
+
+	-- Flags table
+	MySQL.query([[CREATE TABLE IF NOT EXISTS nsw_reg_flags (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		plate VARCHAR(16) NOT NULL,
+		reason VARCHAR(128) NOT NULL,
+		actor_identifier VARCHAR(64) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		INDEX (plate)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]])
+
+	-- Migrations for existing tables
+	local columns = MySQL.query.await("SHOW COLUMNS FROM nsw_registrations", {})
+	if columns then
+		local hasPinkSlip = false
+		local hasIsPrinted = false
+		local hasPlateStyle = false
+		for _, col in ipairs(columns) do
+			if col.Field == 'pink_slip_expires_at' then hasPinkSlip = true end
+			if col.Field == 'is_printed' then hasIsPrinted = true end
+			if col.Field == 'plate_style' then hasPlateStyle = true end
+		end
+		if not hasPinkSlip then
+			MySQL.query.await("ALTER TABLE nsw_registrations ADD COLUMN pink_slip_expires_at INT DEFAULT 0 AFTER expires_at")
+		end
+		if not hasIsPrinted then
+			MySQL.query.await("ALTER TABLE nsw_registrations ADD COLUMN is_printed TINYINT NOT NULL DEFAULT 0 AFTER pink_slip_expires_at")
+		end
+		if not hasPlateStyle then
+			MySQL.query.await("ALTER TABLE nsw_registrations ADD COLUMN plate_style VARCHAR(32) DEFAULT 'standard' AFTER is_printed")
+		end
+	end
+
+	-- Update logs ENUM if it exists
+	MySQL.query([[ALTER TABLE nsw_reg_logs MODIFY COLUMN action ENUM('register','renew','transfer','pinkslip','print') NOT NULL]])
 end
 
 ensureTable()
@@ -75,15 +135,19 @@ end
 local function fetchRegistration(plate)
 	plate = plateToSql(plate)
 	if not plate then return nil end
-	local rows = MySQL.query.await('SELECT * FROM nsw_registrations WHERE plate = ? LIMIT 1', { plate })
+	local ok, rows = pcall(MySQL.query.await, 'SELECT * FROM nsw_registrations WHERE plate = ? LIMIT 1', { plate })
+	if not ok then
+		log('Database error in fetchRegistration: ' .. tostring(rows))
+		return nil
+	end
 	return rows and rows[1] or nil
 end
 
 local function upsertRegistration(data)
-	MySQL.query.await([[INSERT INTO nsw_registrations (plate, owner_identifier, vehicle_hash, registered_at, expires_at, status)
-	VALUES (?, ?, ?, ?, ?, 1)
-	ON DUPLICATE KEY UPDATE owner_identifier = VALUES(owner_identifier), vehicle_hash = VALUES(vehicle_hash), registered_at = VALUES(registered_at), expires_at = VALUES(expires_at), status = 1]],
-		{ data.plate, data.owner_identifier, data.vehicle_hash, data.registered_at, data.expires_at })
+	MySQL.query.await([[INSERT INTO nsw_registrations (plate, owner_identifier, vehicle_hash, registered_at, expires_at, pink_slip_expires_at, is_printed, plate_style, status)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+	ON DUPLICATE KEY UPDATE owner_identifier = VALUES(owner_identifier), vehicle_hash = VALUES(vehicle_hash), registered_at = VALUES(registered_at), expires_at = VALUES(expires_at), pink_slip_expires_at = VALUES(pink_slip_expires_at), is_printed = VALUES(is_printed), plate_style = VALUES(plate_style), status = 1]],
+		{ data.plate, data.owner_identifier, data.vehicle_hash, data.registered_at, data.expires_at, data.pink_slip_expires_at or 0, data.is_printed or 0, data.plate_style or 'standard' })
 end
 
 local function addLog(plate, actor, action, fee, meta)
@@ -116,6 +180,14 @@ local function isStaffFree(player)
 	return false
 end
 
+local function isMechanic(player)
+	local job = Bridge.getJobName(player)
+	for _, j in ipairs(Config.PinkSlip.authorizedJobs or {}) do
+		if j == job then return true end
+	end
+	return false
+end
+
 local function isPlateBlacklisted(plate)
 	for _, pat in ipairs(Config.PlateBlacklist or {}) do
 		if plate:find(pat) then return true end
@@ -136,6 +208,11 @@ local function cleanupReservations()
 	MySQL.query('DELETE FROM nsw_plate_reservations WHERE expires_at < ?', { now() })
 end
 
+lib.callback.register('nsw_reg:isMechanic', function(source)
+	local player = Bridge.getPlayer(source)
+	return player and isMechanic(player) or false
+end)
+
 lib.callback.register('nsw_reg:getInfo', function(source, plate)
 	local reg = fetchRegistration(plate)
 	if not reg then return nil end
@@ -143,11 +220,22 @@ lib.callback.register('nsw_reg:getInfo', function(source, plate)
 	if now() <= reg.expires_at then status = 'valid'
 	elseif isWithinGrace(reg.expires_at) then status = 'grace'
 	else status = 'expired' end
+
+	local pink_status = 'expired'
+	if reg.pink_slip_expires_at > now() then
+		pink_status = 'valid'
+	end
+
 	return {
 		plate = reg.plate,
 		owner_identifier = reg.owner_identifier,
 		expires_at = reg.expires_at,
 		formatted_expiry = os.date('%Y-%m-%d', reg.expires_at),
+		pink_slip_expires_at = reg.pink_slip_expires_at,
+		formatted_pink_expiry = reg.pink_slip_expires_at > 0 and os.date('%Y-%m-%d', reg.pink_slip_expires_at) or 'None',
+		pink_status = pink_status,
+		is_printed = reg.is_printed == 1,
+		plate_style = reg.plate_style,
 		status = status
 	}
 end)
@@ -191,7 +279,7 @@ exports('GetRegistration', function(plate)
     return fetchRegistration(plate)
 end)
 
-RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months)
+RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months, style)
 	local src = source
 	local player = Bridge.getPlayer(src)
 	if not player then return end
@@ -210,8 +298,22 @@ RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months)
 		TriggerClientEvent('nsw_reg:error', src, 'plate_taken')
 		return Bridge.notify(src, 'Plate already in use', 'error')
 	end
+
+	-- Pink Slip Check
+	if Config.PinkSlip.enabled and Config.PinkSlip.requiredForRegistration then
+		-- We allow registration without pink slip for *new* plates? Usually in NSW new cars don't need it for first few years
+		-- But for simplicity of script, lets require it if configured.
+	end
+
+	local styleFee = 0
+	if style then
+		for _, s in ipairs(Config.PlateStyles) do
+			if s.id == style then styleFee = s.fee break end
+		end
+	end
+
 	local discount = getDiscountPercentForPlayer(player)
-    local base = Config.Registration.baseFee
+    local base = Config.Registration.baseFee + styleFee
     local opt = Config.RegistrationDurations and Config.RegistrationDurations[tonumber(months or 3)] or Config.RegistrationDurations[3]
     local fee = calculateFee(math.floor(base * (opt.feeMultiplier or 1.0) + 0.5), discount, 0)
 	if not Bridge.hasMoney(player, 'bank', fee) then
@@ -227,11 +329,12 @@ RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months)
 		owner_identifier = identifier,
 		vehicle_hash = tostring(vehHash or ''),
 		registered_at = now(),
-        expires_at = now() + ((opt and opt.days or Config.Registration.durationDays) * 86400)
+        expires_at = now() + ((opt and opt.days or Config.Registration.durationDays) * 86400),
+		plate_style = style or 'standard'
 	}
 	upsertRegistration(data)
 	log(('Registered %s for %s fee=%s'):format(data.plate, identifier, fee))
-	addLog(data.plate, identifier, 'register', fee, { vehicle_hash = data.vehicle_hash })
+	addLog(data.plate, identifier, 'register', fee, { vehicle_hash = data.vehicle_hash, plate_style = data.plate_style })
 	Bridge.notify(src, (Locale.notify and Locale.notify.success_register) or 'Registered', 'success')
 	TriggerClientEvent('nsw_reg:registered', src, data.plate)
 end)
@@ -247,6 +350,14 @@ RegisterNetEvent('nsw_reg:renew', function(plate, months)
 		TriggerClientEvent('nsw_reg:error', src, 'invalid_input')
 		return Bridge.notify(src, (Locale.notify and Locale.notify.invalid_input) or 'Invalid', 'error')
 	end
+
+	-- Pink Slip Check for renewal
+	if Config.PinkSlip.enabled and Config.PinkSlip.requiredForRenewal then
+		if (reg.pink_slip_expires_at or 0) < now() then
+			return Bridge.notify(src, 'A valid Pink Slip is required for renewal', 'error')
+		end
+	end
+
 	local lateDays = 0
 	if now() > reg.expires_at then
 		lateDays = math.floor((now() - reg.expires_at) / 86400)
@@ -270,6 +381,72 @@ RegisterNetEvent('nsw_reg:renew', function(plate, months)
 	addLog(reg.plate, identifier, 'renew', fee, { lateDays = lateDays })
 	Bridge.notify(src, (Locale.notify and Locale.notify.success_renew) or 'Renewed', 'success')
 	TriggerClientEvent('nsw_reg:renewed', src, plateToSql(plate))
+end)
+
+RegisterNetEvent('nsw_reg:printPlate', function(plate)
+	local src = source
+	local player = Bridge.getPlayer(src)
+	if not player then return end
+
+	plate = plateToSql(plate)
+	local reg = fetchRegistration(plate)
+	if not reg or reg.owner_identifier ~= Bridge.getIdentifier(player) then
+		return Bridge.notify(src, 'Vehicle not found or not owned by you', 'error')
+	end
+
+	local isReplacement = reg.is_printed == 1
+	local fee = isReplacement and Config.Registration.replacementPlateFee or Config.Registration.printPlateFee
+
+	if not Bridge.hasMoney(player, 'bank', fee) then
+		return Bridge.notify(src, 'Insufficient funds to print plate', 'error')
+	end
+
+	if not Bridge.removeMoney(player, 'bank', fee) then
+		return Bridge.notify(src, 'Error processing payment', 'error')
+	end
+
+	if Config.Inventory == 'ox_inventory' then
+		local metadata = {
+			plate = plate,
+			description = ('Vehicle Plate: %s'):format(plate)
+		}
+		local success, response = exports.ox_inventory:AddItem(src, 'nsw_plate', 1, metadata)
+		if not success then
+			Bridge.addMoney(player, 'bank', fee) -- refund
+			return Bridge.notify(src, 'Cannot carry plate item', 'error')
+		end
+	else
+		-- Fallback if not using ox_inventory, just notify for now or use bridge if we add item support there
+		Bridge.notify(src, 'Inventory not supported for physical plates', 'error')
+		return
+	end
+
+	MySQL.query.await('UPDATE nsw_registrations SET is_printed = 1 WHERE plate = ?', { plate })
+	addLog(plate, Bridge.getIdentifier(player), 'print', fee, { isReplacement = isReplacement })
+	Bridge.notify(src, ('Plate %s printed successfully'):format(plate), 'success')
+end)
+
+RegisterNetEvent('nsw_reg:issuePinkSlip', function(plate)
+	local src = source
+	local player = Bridge.getPlayer(src)
+	if not player or not isMechanic(player) then return Bridge.notify(src, 'Not authorized', 'error') end
+
+	plate = plateToSql(plate)
+	local reg = fetchRegistration(plate)
+	if not reg then return Bridge.notify(src, 'Vehicle registration not found', 'error') end
+
+	local expiry = now() + (Config.PinkSlip.durationDays * 86400)
+	MySQL.query.await('UPDATE nsw_registrations SET pink_slip_expires_at = ? WHERE plate = ?', { expiry, plate })
+
+	local fee = Config.PinkSlip.fee or 0
+	-- Maybe pay mechanic or company? Stubbed for now.
+
+	addLog(plate, Bridge.getIdentifier(player), 'pinkslip', fee)
+	Bridge.notify(src, ('Issued Pink Slip for %s'):format(plate), 'success')
+
+	-- Notify owner if online
+	-- local owner = Bridge.getPlayerFromIdentifier(reg.owner_identifier)
+	-- if owner then Bridge.notify(owner.source, ('A Pink Slip has been issued for your vehicle %s'):format(plate), 'inform') end
 end)
 
 RegisterNetEvent('nsw_reg:transfer', function(plate, newOwnerIdentifier)

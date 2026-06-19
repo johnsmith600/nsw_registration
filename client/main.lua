@@ -37,7 +37,8 @@ end
 
 local function openMenu()
 	if isOpen then return closeNui() end
-	SendNUIMessage({ action = 'show', locale = Locale, subtitle = 'Service Centre' })
+	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
+	SendNUIMessage({ action = 'show', locale = Locale, subtitle = 'Service Centre', isMechanic = isMechanic, plateStyles = Config.PlateStyles })
 	SetNuiFocus(true, true)
 	if SetNuiFocusKeepInput then SetNuiFocusKeepInput(false) end
 	isOpen = true
@@ -185,7 +186,12 @@ RegisterNUICallback('nui_close', function(_, cb)
 end)
 
 RegisterNUICallback('nui_register', function(data, cb)
-	TriggerServerEvent('nsw_reg:register', tostring(data.plate or ''), nil, tonumber(data.months) or 3)
+	TriggerServerEvent('nsw_reg:register', tostring(data.plate or ''), nil, tonumber(data.months) or 3, data.style)
+	cb(1)
+end)
+
+RegisterNUICallback('nui_issue_pink', function(data, cb)
+	TriggerServerEvent('nsw_reg:issuePinkSlip', tostring(data.plate or ''))
 	cb(1)
 end)
 
@@ -198,9 +204,10 @@ AddEventHandler('onResourceStop', function(res)
 end)
 
 -- Aggressive watchdog to ensure UI stays closed unless explicitly opened
+-- Watchdog to ensure focus is cleared if UI is hidden but still has focus
 CreateThread(function()
 	while true do
-		if not isOpen then
+		if not isOpen and IsNuiFocused() then
 			SetNuiFocus(false, false)
 			if SetNuiFocusKeepInput then SetNuiFocusKeepInput(false) end
 			SendNUIMessage({ action = 'hide' })
@@ -270,5 +277,47 @@ RegisterNUICallback('nui_reserve', function(data, cb)
 	end
 	cb(1)
 end)
+
+RegisterNUICallback('nui_print', function(data, cb)
+	TriggerServerEvent('nsw_reg:printPlate', tostring(data.plate or ''))
+	cb(1)
+end)
+
+-- Physical Plate Usage
+exports('usePlate', function(data, slot)
+	local plate = slot.metadata.plate
+	if not plate then return end
+
+	local vehicle = lib.getClosestVehicle(GetEntityCoords(cache.ped), 3.0, false)
+	if not vehicle then
+		return lib.notify({ title = 'NSW', description = 'No vehicle nearby', type = 'error' })
+	end
+
+	local vehPlate = plateToSql(GetVehicleNumberPlateText(vehicle))
+	if vehPlate ~= plateToSql(plate) then
+		return lib.notify({ title = 'NSW', description = 'This plate does not match this vehicle', type = 'error' })
+	end
+
+	if lib.progressBar({
+		duration = 5000,
+		label = 'Attaching plate...',
+		useWhileDead = false,
+		canCancel = true,
+		disable = { car = true, move = true },
+		anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig5@', clip = 'working_look_around_workerk' },
+	}) then
+		lib.notify({ title = 'NSW', description = 'Plate attached successfully', type = 'success' })
+		-- In a real scenario, you might want to save that it's attached or change the plate style.
+	else
+		lib.notify({ title = 'NSW', description = 'Cancelled', type = 'inform' })
+	end
+end)
+
+function plateToSql(plate)
+	if not plate then return nil end
+	local s = tostring(plate):upper()
+	s = s:gsub('[^A-Z0-9]', '')
+	return s
+end
 
 

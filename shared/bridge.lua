@@ -32,17 +32,33 @@ local function tryGetESX()
 	return nil
 end
 
+local function tryGetQbox()
+	if GetResourceState('qbx_core') == 'started' then
+		return exports['qbx_core']
+	end
+	return nil
+end
+
 local function init()
 	local mode = (Config.Framework or 'auto'):lower()
 	if mode == 'qb' then
 		Bridge.obj = tryGetQBCore()
 		Bridge.name = Bridge.obj and 'qb' or 'unknown'
+	elseif mode == 'qbox' or mode == 'qbx' then
+		Bridge.obj = tryGetQbox()
+		Bridge.name = Bridge.obj and 'qbox' or 'unknown'
 	elseif mode == 'esx' then
 		Bridge.obj = tryGetESX()
 		Bridge.name = Bridge.obj and 'esx' or 'unknown'
 	else
-		Bridge.obj = tryGetQBCore() or tryGetESX()
-		Bridge.name = Bridge.obj and (Bridge.obj.Shared and 'qb' or 'esx') or 'unknown'
+		Bridge.obj = tryGetQbox() or tryGetQBCore() or tryGetESX()
+		if Bridge.obj then
+			if GetResourceState('qbx_core') == 'started' then Bridge.name = 'qbox'
+			elseif Bridge.obj.Shared then Bridge.name = 'qb'
+			else Bridge.name = 'esx' end
+		else
+			Bridge.name = 'unknown'
+		end
 	end
 	Bridge.isReady = Bridge.obj ~= nil
 end
@@ -51,7 +67,9 @@ init()
 
 function Bridge.getPlayer(source)
 	if not Bridge.isReady then return nil end
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' then
+		return exports.qbx_core:GetPlayer(source)
+	elseif Bridge.name == 'qb' then
 		return Bridge.obj.Functions.GetPlayer(source)
 	else
 		return Bridge.obj.GetPlayerFromId(source)
@@ -60,7 +78,9 @@ end
 
 function Bridge.getIdentifier(player)
 	if not player then return nil end
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' then
+		return player.PlayerData.citizenid
+	elseif Bridge.name == 'qb' then
 		return player.PlayerData.license or player.PlayerData.citizenid
 	else
 		return player.identifier
@@ -69,7 +89,7 @@ end
 
 function Bridge.getJobName(player)
 	if not player then return nil end
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' or Bridge.name == 'qb' then
 		return player.PlayerData.job and player.PlayerData.job.name or nil
 	else
 		return player.getJob and player.getJob().name or (player.job and player.job.name)
@@ -79,7 +99,9 @@ end
 function Bridge.addMoney(player, account, amount)
 	if not player or not amount or amount <= 0 then return false end
 	account = account or 'bank'
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' then
+		return exports.qbx_core:AddMoney(player.PlayerData.source, account, amount)
+	elseif Bridge.name == 'qb' then
 		local ok = player.Functions.AddMoney(account, amount)
 		return ok ~= false
 	else
@@ -95,7 +117,9 @@ end
 function Bridge.removeMoney(player, account, amount)
 	if not player or not amount or amount <= 0 then return false end
 	account = account or 'bank'
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' then
+		return exports.qbx_core:RemoveMoney(player.PlayerData.source, account, amount)
+	elseif Bridge.name == 'qb' then
 		return player.Functions.RemoveMoney(account, amount) ~= false
 	else
 		-- ESX remove* APIs don't return a boolean; assume success after call
@@ -111,7 +135,7 @@ end
 function Bridge.getMoney(player, account)
 	if not player then return 0 end
 	account = account or 'bank'
-	if Bridge.name == 'qb' then
+	if Bridge.name == 'qbox' or Bridge.name == 'qb' then
 		local bal = player.Functions.GetMoney(account)
 		return tonumber(bal) or 0
 	else
@@ -140,4 +164,3 @@ function Bridge.notify(src, msg, type, duration)
 end
 
 return Bridge
-
