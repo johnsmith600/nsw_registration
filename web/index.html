@@ -6,68 +6,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>NSW Registration</title>
-	<link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Service NSW Registration</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
-<body style="background:transparent !important;">
+<body>
     <div id="app" class="hidden">
         <div class="tablet-shell">
-            <div class="tablet-glow"></div>
-            <div class="tablet-notch"></div>
-            <div class="tablet-border"></div>
             <div class="tablet">
-                <div class="statusbar">
-                    <div class="sb-left">
-                        <span class="dot"></span>
-                        <span class="time" id="sb-time">12:00</span>
-                    </div>
-                    <div class="sb-right">
-                        <span class="icon-signal"></span>
-                        <span class="icon-wifi"></span>
-                        <span class="icon-battery"><span class="fill"></span></span>
-                    </div>
-                </div>
                 <div class="tablet__header">
-                    <div class="title">NSW Vehicle Registration</div>
+                    <div class="header-left">
+                        <div class="nsw-logo">Service <span>NSW</span></div>
+                        <div class="title">Vehicle Registration</div>
+                    </div>
                     <div class="subtitle" id="subtitle">Service Centre</div>
                 </div>
                 <div class="tablet__content">
                     <div class="actions">
-                        <button data-action="register"><span class="ico ico-car"></span> Register</button>
-                        <button data-action="renew"><span class="ico ico-rotate"></span> Renew</button>
-                        <button data-action="transfer"><span class="ico ico-user"></span> Transfer</button>
-                        <button data-action="lookup"><span class="ico ico-search"></span> Lookup</button>
-                        <button data-action="history"><span class="ico ico-rotate"></span> History</button>
-                        <button data-action="fees"><span class="ico ico-car"></span> Fees</button>
-                        <button data-action="vanity"><span class="ico ico-user"></span> Vanity</button>
-                        <button data-action="close" class="secondary"><span class="ico ico-x"></span> Close</button>
+                        <button data-action="home" class="active">Home</button>
+                        <button data-action="register">Register Vehicle</button>
+                        <button data-action="renew">Renew Registration</button>
+                        <button data-action="transfer">Transfer Ownership</button>
+                        <button data-action="lookup">Plate Lookup</button>
+                        <button data-action="history">History</button>
+                        <button data-action="print">Print Plate</button>
+                        <button data-action="mechanic" id="mechanic-btn" class="hidden">Mechanic Portal</button>
+                        <button data-action="close" class="secondary">Log Out</button>
                     </div>
                     <div class="panel" id="panel">
-                        <div class="panel-welcome">
-                            <div class="card glass">
-                                <h3>Welcome</h3>
-                                <p>Use the menu on the left to manage vehicle registrations.</p>
-                            </div>
-                            <div class="grid">
-                                <div class="card tile"><div class="tile-ico ico-car"></div><div class="tile-title">Register</div></div>
-                                <div class="card tile"><div class="tile-ico ico-rotate"></div><div class="tile-title">Renew</div></div>
-                                <div class="card tile"><div class="tile-ico ico-user"></div><div class="tile-title">Transfer</div></div>
-                                <div class="card tile"><div class="tile-ico ico-search"></div><div class="tile-title">Lookup</div></div>
-                            </div>
-                        </div>
+                        <!-- Content will be injected here -->
                     </div>
-                </div>
-                <div class="tablet-footer">
-                    <div class="nav-dot active"></div>
-                    <div class="nav-dot"></div>
-                    <div class="nav-dot"></div>
                 </div>
             </div>
         </div>
     </div>
     <script src="app.js"></script>
-    </body>
+</body>
 </html>
-
