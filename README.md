@@ -24,6 +24,7 @@ Advanced New South Wales style vehicle registration for FiveM with ESX, QBCore, 
        stack = false,
        close = true,
        description = 'A physical vehicle registration plate.',
+       image = 'nsw_plate.png',
        client = {
            export = 'nsw_registration.usePlate'
        }

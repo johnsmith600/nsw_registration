@@ -332,7 +332,7 @@ exports('usePlate', function(data, slot)
 		useWhileDead = false,
 		canCancel = true,
 		disable = { car = true, move = true },
-		anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig5@', clip = 'working_look_around_workerk' },
+		anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig5', clip = 'working_look_around_worker' },
 	}) then
 		lib.notify({ title = 'NSW', description = 'Plate attached successfully', type = 'success' })
 		-- In a real scenario, you might want to save that it's attached or change the plate style.
