@@ -50,7 +50,12 @@ local function openMenu(startPage, fromDMV)
 		subtitle = 'Service Centre', 
 		isMechanic = isMechanic, 
 		plateStyles = Config.PlateStyles,
-		startPage = startPage
+		startPage = startPage,
+		config = {
+			printPlateFee = Config.Registration.printPlateFee,
+			pinkSlipFee = Config.PinkSlip.fee,
+			vanityPlateFee = Config.Registration.vanityPlateFee
+		}
 	})
 	
 	SetNuiFocus(true, true)
@@ -311,6 +316,11 @@ RegisterNUICallback('nui_print', function(data, cb)
 	cb(1)
 end)
 
+RegisterNUICallback('nui_purchase_custom', function(data, cb)
+	TriggerServerEvent('nsw_reg:purchaseCustomPlate', tostring(data.oldPlate or ''), tostring(data.newPlate or ''))
+	cb(1)
+end)
+
 -- Physical Plate Usage
 exports('usePlate', function(data, slot)
 	local plate = slot.metadata.plate
@@ -338,6 +348,17 @@ exports('usePlate', function(data, slot)
 		-- In a real scenario, you might want to save that it's attached or change the plate style.
 	else
 		lib.notify({ title = 'NSW', description = 'Cancelled', type = 'inform' })
+	end
+end)
+
+RegisterNetEvent('nsw_reg:updateVehiclePlate', function(oldPlate, newPlate)
+	local vehicle = lib.getClosestVehicle(GetEntityCoords(cache.ped), 5.0, false)
+	if not vehicle then return end
+	
+	local currentPlate = plateToSql(GetVehicleNumberPlateText(vehicle))
+	if currentPlate == plateToSql(oldPlate) then
+		SetVehicleNumberPlateText(vehicle, newPlate)
+		lib.notify({ title = 'NSW', description = 'Vehicle plate updated successfully', type = 'success' })
 	end
 end)
 

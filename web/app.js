@@ -15,6 +15,7 @@ let Locale = {
 
 let PlateStyles = [];
 let SelectedStyle = 'standard';
+let ConfigData = { printPlateFee: 50, pinkSlipFee: 50, vanityPlateFee: 800 };
 
 function escapeHTML(str) {
     if (!str) return "";
@@ -228,6 +229,29 @@ window.submitPrint = () => {
     });
 };
 
+function renderCustom() {
+    panel.innerHTML = `
+        <h2>Custom Plate Number</h2>
+        <p>Choose a unique plate number for your vehicle. Availability will be checked upon submission.</p>
+        ${inputGroup('Current Plate', 'e.g. ABC123', 'oldPlate')}
+        ${inputGroup('Desired New Plate', 'e.g. MYPLATE', 'newPlate')}
+        <button class="submit-btn" onclick="submitCustom()">Purchase & Apply ($${ConfigData.vanityPlateFee})</button>
+    `;
+    setActiveBtn('custom');
+}
+
+window.submitCustom = () => {
+    const oldPlate = document.getElementById('oldPlate').value;
+    const newPlate = document.getElementById('newPlate').value;
+    if (!oldPlate || oldPlate.trim().length === 0) return toast('Please enter your current plate');
+    if (!newPlate || newPlate.trim().length === 0) return toast('Please enter your new desired plate');
+    
+    fetch(`https://${GetParentResourceName()}/nui_purchase_custom`, {
+        method: 'POST',
+        body: JSON.stringify({ oldPlate, newPlate })
+    });
+};
+
 function renderMechanic() {
     panel.innerHTML = `
         <h2>Mechanic Portal</h2>
@@ -264,6 +288,7 @@ function bindActions() {
             if (act === 'transfer') renderTransfer();
             if (act === 'lookup') renderLookup();
             if (act === 'history') renderHistory();
+            if (act === 'custom') renderCustom();
             if (act === 'print') renderPrint();
             if (act === 'mechanic') renderMechanic();
             if (act === 'close') {
@@ -279,6 +304,7 @@ window.addEventListener('message', (e) => {
     if (data.action === 'show') {
         Locale = data.locale || Locale;
         PlateStyles = data.plateStyles || [];
+        ConfigData = data.config || ConfigData;
         subtitle.textContent = data.subtitle || 'Service Centre';
         if (data.isMechanic) mechanicBtn.classList.remove('hidden');
         else mechanicBtn.classList.add('hidden');
