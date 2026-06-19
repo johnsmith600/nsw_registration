@@ -195,13 +195,33 @@ local function isPlateBlacklisted(plate)
 	return false
 end
 
+local function getFrameworkVehicleTable()
+	if Bridge.name == 'qb' or Bridge.name == 'qbox' then
+		return 'player_vehicles', 'citizenid'
+	end
+	return 'owned_vehicles', 'owner'
+end
+
 local function isPlateTaken(plate)
 	local p = plateToSql(plate)
+	-- Check NSW table
 	local r1 = MySQL.query.await('SELECT 1 FROM nsw_registrations WHERE plate = ? LIMIT 1', { p })
 	if r1 and r1[1] then return true end
-	local r2 = MySQL.query.await('SELECT 1 FROM owned_vehicles WHERE plate = ? LIMIT 1', { p })
+	
+	-- Check Framework table
+	local tbl, col = getFrameworkVehicleTable()
+	local r2 = MySQL.query.await(('SELECT 1 FROM %s WHERE plate = ? LIMIT 1'):format(tbl), { p })
 	if r2 and r2[1] then return true end
+	
 	return false
+end
+
+local function isPlayerVehicleOwner(identifier, plate)
+	local p = plateToSql(plate)
+	local tbl, col = getFrameworkVehicleTable()
+	local query = ('SELECT 1 FROM %s WHERE plate = ? AND %s = ? LIMIT 1'):format(tbl, col)
+	local res = MySQL.query.await(query, { p, identifier })
+	return res and res[1] ~= nil
 end
 
 local function cleanupReservations()
@@ -217,7 +237,24 @@ end)
 
 lib.callback.register('nsw_reg:getInfo', function(source, plate)
 	local reg = fetchRegistration(plate)
-	if not reg then return nil end
+	if not reg then
+		-- Fallback to framework table to see if it's an unregistered vehicle
+		local p = plateToSql(plate)
+		local tbl, col = getFrameworkVehicleTable()
+		local row = MySQL.query.await(('SELECT %s as owner_identifier FROM %s WHERE plate = ? LIMIT 1'):format(col, tbl), { p })
+		if row and row[1] then
+			return {
+				plate = p,
+				owner_identifier = row[1].owner_identifier,
+				status = 'unregistered',
+				pink_status = 'expired',
+				formatted_pink_expiry = 'None',
+				is_printed = false,
+				plate_style = 'standard'
+			}
+		end
+		return nil
+	end
 	local status
 	if now() <= reg.expires_at then status = 'valid'
 	elseif isWithinGrace(reg.expires_at) then status = 'grace'
@@ -296,7 +333,10 @@ RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months, style)
 		TriggerClientEvent('nsw_reg:error', src, 'plate_blacklisted')
 		return Bridge.notify(src, 'Plate is not allowed', 'error')
 	end
-	if isPlateTaken(plate) then
+	local isTaken = isPlateTaken(plate)
+	local isOwner = isPlayerVehicleOwner(identifier, plate)
+
+	if isTaken and not isOwner then
 		TriggerClientEvent('nsw_reg:error', src, 'plate_taken')
 		return Bridge.notify(src, 'Plate already in use', 'error')
 	end

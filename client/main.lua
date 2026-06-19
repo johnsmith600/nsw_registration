@@ -57,7 +57,23 @@ local function openMenu(startPage)
 end
 
 RegisterCommand('nswregmenu', function()
-	openMenu()
+	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
+	local isAtDMV = false
+	if Config.DMVLocations then
+		local p = GetEntityCoords(PlayerPedId())
+		for _, loc in ipairs(Config.DMVLocations) do
+			if #(p - vec3(loc.coords.x, loc.coords.y, loc.coords.z)) < 5.0 then
+				isAtDMV = true
+				break
+			end
+		end
+	end
+
+	if isMechanic or isAtDMV then
+		openMenu()
+	else
+		lib.notify({ title = 'NSW', description = 'You must be at a Service Centre to access registration services.', type = 'error' })
+	end
 end)
 
 RegisterCommand('nswmechanic', function()
@@ -95,8 +111,9 @@ CreateThread(function()
 			function point:nearby()
 				DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
 				if self.currentDistance < 2.0 then
-					if Config.Debug and IsControlJustPressed(0, 38) then print('[NSW] E pressed at DMV point (ox_lib point)') end
-					if IsControlJustPressed(0, 38) then
+					local isPressed = IsControlJustPressed(0, 38)
+					if isPressed then
+						if Config.Debug then print('[NSW] E pressed at DMV point (ox_lib point)') end
 						openMenu()
 					end
 				end
@@ -114,8 +131,9 @@ CreateThread(function()
 							BeginTextCommandDisplayHelp('STRING')
 							AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))
 							EndTextCommandDisplayHelp(0, false, true, -1)
-							if Config.Debug and IsControlJustPressed(0, 38) then print('[NSW] E pressed at DMV point (fallback loop)') end
-							if IsControlJustPressed(0, 38) then
+							local isPressed = IsControlJustPressed(0, 38)
+							if isPressed then
+								if Config.Debug then print('[NSW] E pressed at DMV point (fallback loop)') end
 								openMenu()
 							end
 						elseif dist >= 3.0 and isOpen then
