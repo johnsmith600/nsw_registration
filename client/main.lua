@@ -56,25 +56,7 @@ local function openMenu(startPage)
 	if Config.Debug then print('[NSW] NUI opened successfully') end
 end
 
-RegisterCommand('nswregmenu', function()
-	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
-	local isAtDMV = false
-	if Config.DMVLocations then
-		local p = GetEntityCoords(PlayerPedId())
-		for _, loc in ipairs(Config.DMVLocations) do
-			if #(p - vec3(loc.coords.x, loc.coords.y, loc.coords.z)) < 5.0 then
-				isAtDMV = true
-				break
-			end
-		end
-	end
-
-	if isMechanic or isAtDMV then
-		openMenu()
-	else
-		lib.notify({ title = 'NSW', description = 'You must be at a Service Centre to access registration services.', type = 'error' })
-	end
-end)
+-- Command removed for civilians as requested. Mechanics use /nswmechanic
 
 RegisterCommand('nswmechanic', function()
 	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
@@ -93,59 +75,49 @@ RegisterCommand('nswreg', function(_, args)
 end)
 
 -- World interaction: go to DMV location and press E
+-- Revamped to be more reliable using a single loop for markers and input
 CreateThread(function()
 	if not (Config.DMVLocations and #Config.DMVLocations > 0) then return end
-	for _, entry in ipairs(Config.DMVLocations) do
-		local pos = entry.coords
-		if lib and lib.points and lib.showTextUI then
-			local point = lib.points.new({ coords = vec3(pos.x, pos.y, pos.z), distance = 25.0 })
-			function point:onEnter()
-				lib.showTextUI(('[%s] %s'):format('E', Locale.open_menu))
-				if Config.Debug then print('[NSW] Entered DMV point') end
-			end
-			function point:onExit()
-				lib.hideTextUI()
-				closeNui()
-				if Config.Debug then print('[NSW] Exited DMV point') end
-			end
-			function point:nearby()
+	
+	while true do
+		local sleep = 1000
+		local ped = PlayerPedId()
+		local coords = GetEntityCoords(ped)
+		local nearAny = false
+
+		for _, entry in ipairs(Config.DMVLocations) do
+			local pos = entry.coords
+			local dist = #(coords - vec3(pos.x, pos.y, pos.z))
+
+			if dist < 15.0 then
+				sleep = 0
+				nearAny = true
 				DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
-				if self.currentDistance < 2.0 then
-					local isPressed = IsControlJustPressed(0, 38)
-					if isPressed then
-						if Config.Debug then print('[NSW] E pressed at DMV point (ox_lib point)') end
+				
+				if dist < 2.0 then
+					if lib and lib.showTextUI then
+						lib.showTextUI(('[%s] %s'):format('E', Locale.open_menu))
+					else
+						BeginTextCommandDisplayHelp('STRING')
+						AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))
+						EndTextCommandDisplayHelp(0, false, true, -1)
+					end
+
+					if IsControlJustPressed(0, 38) then -- E
+						if Config.Debug then print('[NSW] E pressed at DMV point') end
 						openMenu()
+						Wait(500) -- prevent double trigger
 					end
 				end
 			end
-		else
-			-- Fallback without ox_lib points: simple loop
-			CreateThread(function()
-				while true do
-					local ped = PlayerPedId()
-					local p = GetEntityCoords(ped)
-					local dist = #(p - vec3(pos.x, pos.y, pos.z))
-					if dist < 25.0 then
-						DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
-						if dist < 2.0 then
-							BeginTextCommandDisplayHelp('STRING')
-							AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))
-							EndTextCommandDisplayHelp(0, false, true, -1)
-							local isPressed = IsControlJustPressed(0, 38)
-							if isPressed then
-								if Config.Debug then print('[NSW] E pressed at DMV point (fallback loop)') end
-								openMenu()
-							end
-						elseif dist >= 3.0 and isOpen then
-							closeNui()
-						end
-						Wait(0)
-					else
-						Wait(1000)
-					end
-				end
-			end)
 		end
+
+		if not nearAny then
+			if lib and lib.hideTextUI then lib.hideTextUI() end
+			if isOpen then closeNui() end
+		end
+
+		Wait(sleep)
 	end
 end)
 
@@ -215,11 +187,17 @@ RegisterNetEvent('nsw_reg:transferred', function(plate, newOwner)
 end)
 
 RegisterNetEvent('nsw_reg:error', function(code)
-	local msg = (Locale.notify and Locale.notify[code]) or 'Error'
+	local msg = (Locale.notify and Locale.notify[code]) or ('Error: ' .. tostring(code))
 	if lib and lib.notify then
 		lib.notify({ title = 'NSW', description = msg, type = 'error' })
 	end
 	if Config.Debug then print('[NSW] error ' .. tostring(code)) end
+end)
+
+RegisterNetEvent('nsw_reg:pinkSlipIssued', function(plate)
+	if lib and lib.notify then
+		lib.notify({ title = 'NSW', description = 'Pink Slip issued for plate ' .. tostring(plate), type = 'success' })
+	end
 end)
 
 -- NUI callbacks

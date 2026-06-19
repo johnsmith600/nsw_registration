@@ -324,8 +324,10 @@ RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months, style)
 	if not player then return end
 	if not withinOpeningHours() then return Bridge.notify(src, 'Service Centre is closed', 'error') end
 	local identifier = Bridge.getIdentifier(player)
+	local rawPlate = plate
 	plate = plateToSql(plate)
 	if not plate then
+		if Config.Debug then print(('[NSW] Register failed: rawPlate="%s" -> plateToSql returned nil'):format(rawPlate)) end
 		TriggerClientEvent('nsw_reg:error', src, 'invalid_input')
 		return Bridge.notify(src, 'Invalid plate format', 'error')
 	end
@@ -337,6 +339,7 @@ RegisterNetEvent('nsw_reg:register', function(plate, vehHash, months, style)
 	local isOwner = isPlayerVehicleOwner(identifier, plate)
 
 	if isTaken and not isOwner then
+		if Config.Debug then print(('[NSW] Register failed: plate "%s" is already taken and player is not owner'):format(plate)) end
 		TriggerClientEvent('nsw_reg:error', src, 'plate_taken')
 		return Bridge.notify(src, 'Plate already in use', 'error')
 	end
@@ -485,6 +488,7 @@ RegisterNetEvent('nsw_reg:issuePinkSlip', function(plate)
 	
 	addLog(plate, Bridge.getIdentifier(player), 'pinkslip', fee)
 	Bridge.notify(src, ('Issued Pink Slip for %s'):format(plate), 'success')
+	TriggerClientEvent('nsw_reg:pinkSlipIssued', src, plate)
 	
 	-- Notify owner if online
 	-- local owner = Bridge.getPlayerFromIdentifier(reg.owner_identifier)
