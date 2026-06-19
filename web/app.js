@@ -114,6 +114,7 @@ window.selectStyle = (id) => {
 
 window.submitRegister = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     const months = document.getElementById('months').value;
     fetch(`https://${GetParentResourceName()}/nui_register`, {
         method: 'POST',
@@ -138,6 +139,7 @@ function renderRenew() {
 
 window.submitRenew = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     const months = document.getElementById('months').value;
     fetch(`https://${GetParentResourceName()}/nui_renew`, {
         method: 'POST',
@@ -158,7 +160,9 @@ function renderTransfer() {
 
 window.submitTransfer = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     const newOwner = document.getElementById('newOwner').value;
+    if (!newOwner || newOwner.trim().length === 0) return toast('Please enter new owner ID');
     fetch(`https://${GetParentResourceName()}/nui_transfer`, {
         method: 'POST',
         body: JSON.stringify({ plate, newOwner })
@@ -178,6 +182,7 @@ function renderLookup() {
 
 window.submitLookup = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_lookup`, {
         method: 'POST',
         body: JSON.stringify({ plate })
@@ -197,6 +202,7 @@ function renderHistory() {
 
 window.submitHistory = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_history`, {
         method: 'POST',
         body: JSON.stringify({ plate })
@@ -215,6 +221,7 @@ function renderPrint() {
 
 window.submitPrint = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_print`, {
         method: 'POST',
         body: JSON.stringify({ plate })
@@ -233,6 +240,7 @@ function renderMechanic() {
 
 window.submitPinkSlip = () => {
     const plate = document.getElementById('plate').value;
+    if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_issue_pink`, {
         method: 'POST',
         body: JSON.stringify({ plate })

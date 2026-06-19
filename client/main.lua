@@ -26,6 +26,8 @@ AddEventHandler('onClientResourceStart', function(res)
 end)
 
 local isOpen = false
+local openedByDMV = false
+
 local function closeNui()
 	if not isOpen then return end
 	SetNuiFocus(false, false)
@@ -35,9 +37,10 @@ local function closeNui()
 	if Config.Debug then print('[NSW] NUI closed') end
 end
 
-local function openMenu(startPage)
+local function openMenu(startPage, fromDMV)
 	if isOpen then return closeNui() end
-	if Config.Debug then print('[NSW] Opening menu, startPage:', startPage) end
+	if Config.Debug then print('[NSW] Opening menu, startPage:', startPage, 'fromDMV:', fromDMV) end
+	openedByDMV = fromDMV or false
 	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
 	if Config.Debug then print('[NSW] isMechanic check returned:', isMechanic) end
 	
@@ -61,7 +64,7 @@ end
 RegisterCommand('nswmechanic', function()
 	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
 	if isMechanic then
-		openMenu('mechanic')
+		openMenu('mechanic', false)
 	else
 		if lib and lib.notify then
 			lib.notify({ title = 'NSW', description = 'You are not authorized to use the Mechanic Portal', type = 'error' })
@@ -105,7 +108,7 @@ CreateThread(function()
 
 					if IsControlJustPressed(0, 38) then -- E
 						if Config.Debug then print('[NSW] E pressed at DMV point') end
-						openMenu()
+						openMenu(nil, true)
 						Wait(500) -- prevent double trigger
 					end
 				end
@@ -114,7 +117,11 @@ CreateThread(function()
 
 		if not nearAny then
 			if lib and lib.hideTextUI then lib.hideTextUI() end
-			if isOpen then closeNui() end
+			-- Only auto-close if we opened it at the DMV. 
+			-- If opened via command/mechanic portal, let them use it anywhere.
+			if isOpen and openedByDMV then
+				closeNui()
+			end
 		end
 
 		Wait(sleep)
