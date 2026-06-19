@@ -353,13 +353,27 @@ exports('usePlate', function(data, slot)
 end)
 
 RegisterNetEvent('nsw_reg:updateVehiclePlate', function(oldPlate, newPlate)
-	local vehicle = lib.getClosestVehicle(GetEntityCoords(cache.ped), 5.0, false)
-	if not vehicle then return end
-	
-	local currentPlate = plateToSql(GetVehicleNumberPlateText(vehicle))
-	if currentPlate == plateToSql(oldPlate) then
-		SetVehicleNumberPlateText(vehicle, newPlate)
+	local coords = GetEntityCoords(cache.ped)
+	local vehicles = GetGamePool('CVehicle')
+	local found = false
+
+	for _, vehicle in ipairs(vehicles) do
+		local dist = #(coords - GetEntityCoords(vehicle))
+		if dist < 50.0 then
+			local currentPlate = plateToSql(GetVehicleNumberPlateText(vehicle))
+			if currentPlate == plateToSql(oldPlate) then
+				SetVehicleNumberPlateText(vehicle, newPlate)
+				found = true
+				if Config.Debug then print(('[NSW] Updated physical plate on vehicle at distance: %s'):format(dist)) end
+				break
+			end
+		end
+	end
+
+	if found then
 		lib.notify({ title = 'NSW', description = 'Vehicle plate updated successfully', type = 'success' })
+	else
+		if Config.Debug then print(('[NSW] Could not find vehicle with plate %s within 50m'):format(oldPlate)) end
 	end
 end)
 
