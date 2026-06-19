@@ -72,7 +72,7 @@ CreateThread(function()
 			end
 			function point:nearby()
 				DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
-				if self.currentDistance < 2.0 and IsControlJustReleased(0, 38) then -- E
+				if self.currentDistance < 2.0 and IsControlJustPressed(0, 38) then -- E
 					openMenu()
 					if Config.Debug then print('[NSW] E pressed at DMV point') end
 				end
@@ -90,7 +90,7 @@ CreateThread(function()
 							BeginTextCommandDisplayHelp('STRING')
 							AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))
 							EndTextCommandDisplayHelp(0, false, true, -1)
-							if IsControlJustReleased(0, 38) then
+							if IsControlJustPressed(0, 38) then
 								openMenu()
 							end
 						elseif dist >= 3.0 and isOpen then
