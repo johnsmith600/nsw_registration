@@ -210,7 +210,9 @@ end
 
 lib.callback.register('nsw_reg:isMechanic', function(source)
 	local player = Bridge.getPlayer(source)
-	return player and isMechanic(player) or false
+	local result = player and isMechanic(player) or false
+	if Config.Debug then print(('[NSW] Callback nsw_reg:isMechanic for %s returned %s'):format(source, result)) end
+	return result
 end)
 
 lib.callback.register('nsw_reg:getInfo', function(source, plate)

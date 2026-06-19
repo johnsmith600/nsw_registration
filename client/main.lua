@@ -35,18 +35,40 @@ local function closeNui()
 	if Config.Debug then print('[NSW] NUI closed') end
 end
 
-local function openMenu()
+local function openMenu(startPage)
 	if isOpen then return closeNui() end
+	if Config.Debug then print('[NSW] Opening menu, startPage:', startPage) end
 	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
-	SendNUIMessage({ action = 'show', locale = Locale, subtitle = 'Service Centre', isMechanic = isMechanic, plateStyles = Config.PlateStyles })
+	if Config.Debug then print('[NSW] isMechanic check returned:', isMechanic) end
+	
+	SendNUIMessage({ 
+		action = 'show', 
+		locale = Locale, 
+		subtitle = 'Service Centre', 
+		isMechanic = isMechanic, 
+		plateStyles = Config.PlateStyles,
+		startPage = startPage
+	})
+	
 	SetNuiFocus(true, true)
 	if SetNuiFocusKeepInput then SetNuiFocusKeepInput(false) end
 	isOpen = true
-	if Config.Debug then print('[NSW] NUI opened') end
+	if Config.Debug then print('[NSW] NUI opened successfully') end
 end
 
 RegisterCommand('nswregmenu', function()
 	openMenu()
+end)
+
+RegisterCommand('nswmechanic', function()
+	local isMechanic = lib.callback.await('nsw_reg:isMechanic', false)
+	if isMechanic then
+		openMenu('mechanic')
+	else
+		if lib and lib.notify then
+			lib.notify({ title = 'NSW', description = 'You are not authorized to use the Mechanic Portal', type = 'error' })
+		end
+	end
 end)
 
 RegisterCommand('nswreg', function(_, args)
@@ -72,9 +94,11 @@ CreateThread(function()
 			end
 			function point:nearby()
 				DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
-				if self.currentDistance < 2.0 and IsControlJustPressed(0, 38) then -- E
-					openMenu()
-					if Config.Debug then print('[NSW] E pressed at DMV point') end
+				if self.currentDistance < 2.0 then
+					if Config.Debug and IsControlJustPressed(0, 38) then print('[NSW] E pressed at DMV point (ox_lib point)') end
+					if IsControlJustPressed(0, 38) then
+						openMenu()
+					end
 				end
 			end
 		else
@@ -90,6 +114,7 @@ CreateThread(function()
 							BeginTextCommandDisplayHelp('STRING')
 							AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))
 							EndTextCommandDisplayHelp(0, false, true, -1)
+							if Config.Debug and IsControlJustPressed(0, 38) then print('[NSW] E pressed at DMV point (fallback loop)') end
 							if IsControlJustPressed(0, 38) then
 								openMenu()
 							end

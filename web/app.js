@@ -28,7 +28,6 @@ function escapeHTML(str) {
 
 function setVisible(v) {
     app.classList[v ? 'remove' : 'add']('hidden');
-    if (v) renderHome();
 }
 
 function toast(text) {
@@ -277,6 +276,11 @@ window.addEventListener('message', (e) => {
         else mechanicBtn.classList.add('hidden');
         setVisible(true);
         bindActions();
+        if (data.startPage === 'mechanic' && data.isMechanic) {
+            renderMechanic();
+        } else {
+            renderHome();
+        }
     } else if (data.action === 'hide') {
         setVisible(false);
     } else if (data.action === 'toast') {
