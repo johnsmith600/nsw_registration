@@ -317,6 +317,7 @@ RegisterNUICallback('nui_print', function(data, cb)
 end)
 
 RegisterNUICallback('nui_purchase_custom', function(data, cb)
+	if Config.Debug then print('[NSW] NUI Request: purchaseCustomPlate', json.encode(data)) end
 	TriggerServerEvent('nsw_reg:purchaseCustomPlate', tostring(data.oldPlate or ''), tostring(data.newPlate or ''))
 	cb(1)
 end)

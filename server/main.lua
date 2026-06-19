@@ -495,6 +495,67 @@ RegisterNetEvent('nsw_reg:issuePinkSlip', function(plate)
 	-- if owner then Bridge.notify(owner.source, ('A Pink Slip has been issued for your vehicle %s'):format(plate), 'inform') end
 end)
 
+RegisterNetEvent('nsw_reg:purchaseCustomPlate', function(oldPlate, newPlate)
+	local src = source
+	if Config.Debug then print(('[NSW] Server Request: purchaseCustomPlate from %s. oldPlate="%s", newPlate="%s"'):format(src, oldPlate, newPlate)) end
+	local player = Bridge.getPlayer(src)
+	if not player then return end
+	
+	oldPlate = plateToSql(oldPlate)
+	newPlate = plateToSql(newPlate)
+	
+	if not oldPlate or not newPlate then
+		return Bridge.notify(src, 'Invalid plate input', 'error')
+	end
+	
+	if isPlateBlacklisted(newPlate) then
+		return Bridge.notify(src, 'Desired plate is blacklisted', 'error')
+	end
+	
+	if isPlateTaken(newPlate) then
+		return Bridge.notify(src, 'Desired plate is already taken', 'error')
+	end
+	
+	local identifier = Bridge.getIdentifier(player)
+	if not isPlayerVehicleOwner(identifier, oldPlate) then
+		if Config.Debug then print(('[NSW] Ownership check failed for %s and plate %s'):format(identifier, oldPlate)) end
+		return Bridge.notify(src, 'You do not own this vehicle', 'error')
+	end
+	
+	local fee = math.floor(Config.Registration.vanityPlateFee or 800)
+	if not Bridge.hasMoney(player, 'bank', fee) then
+		return Bridge.notify(src, 'Insufficient funds for custom plate', 'error')
+	end
+	
+	if not Bridge.removeMoney(player, 'bank', fee) then
+		return Bridge.notify(src, 'Payment failed', 'error')
+	end
+	
+	-- Update Framework table
+	local tbl, col = getFrameworkVehicleTable()
+	MySQL.query.await(('UPDATE %s SET plate = ? WHERE plate = ? AND %s = ?'):format(tbl, col), { newPlate, oldPlate, identifier })
+	
+	-- Update NSW table if it exists
+	local reg = fetchRegistration(oldPlate)
+	if reg then
+		MySQL.query.await('UPDATE nsw_registrations SET plate = ? WHERE plate = ?', { newPlate, oldPlate })
+	else
+		-- Create new registration if it didn't exist
+		local data = {
+			plate = newPlate,
+			owner_identifier = identifier,
+			registered_at = now(),
+			expires_at = now() + (Config.Registration.durationDays * 86400),
+			status = 1
+		}
+		upsertRegistration(data)
+	end
+	
+	addLog(newPlate, identifier, 'register', fee, { custom_plate = true, old_plate = oldPlate })
+	Bridge.notify(src, ('Successfully changed plate to %s'):format(newPlate), 'success')
+	TriggerClientEvent('nsw_reg:updateVehiclePlate', src, oldPlate, newPlate)
+end)
+
 RegisterNetEvent('nsw_reg:transfer', function(plate, newOwnerIdentifier)
 	local src = source
 	local player = Bridge.getPlayer(src)

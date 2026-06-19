@@ -215,7 +215,7 @@ function renderPrint() {
         <h2>Print Physical Plate</h2>
         <p>Order a physical metal plate to be manufactured for your vehicle.</p>
         ${inputGroup('Plate Number', 'e.g. NSW123', 'plate')}
-        <button class="submit-btn" onclick="submitPrint()">Print Plate ($50)</button>
+        <button class="submit-btn" onclick="submitPrint()">Print Plate ($${ConfigData.printPlateFee})</button>
     `;
     setActiveBtn('print');
 }
@@ -225,7 +225,7 @@ window.submitPrint = () => {
     if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_print`, {
         method: 'POST',
-        body: JSON.stringify({ plate })
+        body: JSON.stringify({ plate: plate })
     });
 };
 
@@ -246,9 +246,10 @@ window.submitCustom = () => {
     if (!oldPlate || oldPlate.trim().length === 0) return toast('Please enter your current plate');
     if (!newPlate || newPlate.trim().length === 0) return toast('Please enter your new desired plate');
     
+    console.log('NSW: Submitting custom plate request', oldPlate, newPlate);
     fetch(`https://${GetParentResourceName()}/nui_purchase_custom`, {
         method: 'POST',
-        body: JSON.stringify({ oldPlate, newPlate })
+        body: JSON.stringify({ oldPlate: oldPlate, newPlate: newPlate })
     });
 };
 
@@ -257,7 +258,7 @@ function renderMechanic() {
         <h2>Mechanic Portal</h2>
         <p>Inspect vehicles and issue Pink Slips (Safety Checks).</p>
         ${inputGroup('Plate Number', 'e.g. NSW123', 'plate')}
-        <button class="submit-btn" onclick="submitPinkSlip()">Issue Pink Slip</button>
+        <button class="submit-btn" onclick="submitPinkSlip()">Issue Pink Slip ($${ConfigData.pinkSlipFee})</button>
     `;
     setActiveBtn('mechanic');
 }
@@ -267,7 +268,7 @@ window.submitPinkSlip = () => {
     if (!plate || plate.trim().length === 0) return toast('Please enter a plate number');
     fetch(`https://${GetParentResourceName()}/nui_issue_pink`, {
         method: 'POST',
-        body: JSON.stringify({ plate })
+        body: JSON.stringify({ plate: plate })
     });
 };
 
