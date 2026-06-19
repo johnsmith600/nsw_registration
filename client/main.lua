@@ -92,11 +92,11 @@ CreateThread(function()
 			if dist < 15.0 then
 				sleep = 0
 				nearAny = true
-				DrawMarker(2, pos.x, pos.y, pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.35, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
+				DrawMarker(2, pos.x, pos.y, pos.z - 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0, 153, 255, 160, false, false, 2, false, nil, nil, false)
 				
 				if dist < 2.0 then
 					if lib and lib.showTextUI then
-						lib.showTextUI(('[%s] %s'):format('E', Locale.open_menu))
+						lib.showTextUI(('[E] %s'):format(Locale.open_menu))
 					else
 						BeginTextCommandDisplayHelp('STRING')
 						AddTextComponentSubstringPlayerName(('Press ~INPUT_CONTEXT~ to %s'):format(Locale.open_menu))

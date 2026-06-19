@@ -14,7 +14,7 @@ Config.Debug = true
 Config.UseOxLib = true
 Config.Target = 'ox_target' -- optional: set to false to disable
 Config.Inventory = 'ox_inventory' -- optional: set to false to disable
-Config.UseDHSBanking = true -- set to true to use DHS-BankingSim instead of framework banks
+Config.UseDHSBanking = false -- set to true to use DHS-BankingSim instead of framework banks
 -- Format uses % for digits and letters as uppercase by default. Example: NSW AB12 CD34 -> 'NSW%% %%%%'
 Config.PlateFormat = 'NSW% %%%%'
 
